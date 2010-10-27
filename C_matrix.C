@@ -78,7 +78,13 @@ void C_matrix::load(char * fname)
 #endif
 
        ignore_comments(fid);
+#if UINT32_MAX == ULONG_MAX
        if(fscanf(fid,"C_MATRIX_RING_CARD %lu",&base)<1)
+#elif UINT32_MAX == UINT_MAX
+       if(fscanf(fid,"C_MATRIX_RING_CARD %u",&base)<1)
+#else
+	#error "Can't determine appropriate parameters for fscanf"
+#endif
 	 {
 	   cerr << "Error: No C_MATRIX_RING_CARD specification ";
 	   cerr << "or wrong place!" << endl;
@@ -96,7 +102,13 @@ void C_matrix::load(char * fname)
 //////////////////////////////////////////////////////////////////////////////
 
       ignore_comments(fid);
+#if UINT32_MAX == ULONG_MAX
       if(fscanf(fid,"DIGIT_ACCURACY %lu",&NumDigits)<1)
+#elif UINT32_MAX == UINT_MAX
+      if(fscanf(fid,"DIGIT_ACCURACY %u",&NumDigits)<1)
+#else
+	#error "Can't determine appropriate parameters for fscanf"
+#endif
 	{
 	  cerr << "Error: No DIGIT_ACCURACY specification or wrong place!";
 	  cerr << endl;
@@ -108,7 +120,13 @@ void C_matrix::load(char * fname)
 			    << "(C_matrix::load())"<<endl;
 #endif
       ignore_comments(fid);
+#if UINT32_MAX == ULONG_MAX
       if(fscanf(fid,"MAX_DIMENSION %lu",&dimension)<1)
+#elif UINT32_MAX == UINT_MAX
+      if(fscanf(fid,"MAX_DIMENSION %u",&dimension)<1)
+#else
+	#error "Can't determine appropriate parameters for fscanf"
+#endif
 	{
 	  cerr << "Error: No MAX_DIMENSION specification or wrong place!";
 	  cerr << endl;
@@ -124,12 +142,18 @@ void C_matrix::load(char * fname)
       for(akdim=0;akdim<dimension;akdim++)
         {
 	  ignore_comments(fid);
-	  fscanf(fid,"DIMENSION %d",&i);
+	  fscanf(fid,"DIMENSION %d",&i);	//No #if required because i is an int
           for(row=0;row<NumDigits;row++) 
              {
 	       for(column=0;column<NumDigits;column++)
 		 {
+#if UINT32_MAX == ULONG_MAX
 		   fscanf(fid,"%lu",&tmp);
+#elif UINT32_MAX == UINT_MAX
+		   fscanf(fid,"%u",&tmp);
+#else
+	#error "Can't determine appropriate parameters for fscanf"
+#endif
 		   if(tmp>=base)
 		     {
 		       cerr << "Error: Element out of range!" << endl;
@@ -177,9 +201,17 @@ void C_matrix::save(char * fname)
    fprintf(fid,"C_MATRIX\n");
    fprintf(fid,"C_MATRIX_NAME %s\n",name);
    fprintf(fid,"C_MATRIX_RING_NAME %s\n",R->name);
-   fprintf(fid,"C_MATRIX_RING_CARD %d\n",R->base);
-   fprintf(fid,"DIGIT_ACCURACY %d\n",NumDigits);
-   fprintf(fid,"MAX_DIMENSION %d\n\n",dimension);
+#if UINT32_MAX == ULONG_MAX
+   fprintf(fid,"C_MATRIX_RING_CARD %lu\n",R->base);
+   fprintf(fid,"DIGIT_ACCURACY %lu\n",NumDigits);
+   fprintf(fid,"MAX_DIMENSION %lu\n\n",dimension);
+#elif UINT32_MAX == UINT_MAX
+   fprintf(fid,"C_MATRIX_RING_CARD %u\n",R->base);
+   fprintf(fid,"DIGIT_ACCURACY %u\n",NumDigits);
+   fprintf(fid,"MAX_DIMENSION %u\n\n",dimension);
+#else
+	#error "Can't determine appropriate parameters for fscanf"
+#endif
 
    fprintf(fid,"# The indices of the following arrays are \n");
    fprintf(fid,"# horizontal is l\n");
@@ -190,13 +222,24 @@ void C_matrix::save(char * fname)
 
    for(akdim=0;akdim<dimension;akdim++)
      {
-       fprintf(fid,"DIMENSION %d\n",akdim);
-       
+#if UINT32_MAX == ULONG_MAX
+       fprintf(fid,"DIMENSION %lu\n",akdim);
+#elif UINT32_MAX == UINT_MAX
+       fprintf(fid,"DIMENSION %u\n",akdim);
+#else
+	#error "Can't determine appropriate parameters for fscanf"
+#endif
        for(row=0;row<NumDigits;row++)
 	 {
 	   for(column=0;column<NumDigits;column++)
 	     {
-	       fprintf(fid,"%d ",query(akdim,row,column));
+#if UINT32_MAX == ULONG_MAX
+	       fprintf(fid,"%lu ",query(akdim,row,column));
+#elif UINT32_MAX == UINT_MAX
+	       fprintf(fid,"%u ",query(akdim,row,column));
+#else
+	#error "Can't determine appropriate parameters for fscanf"
+#endif
 	     }
 	   fprintf(fid,"END_LINE\n");
 	 }
