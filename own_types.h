@@ -32,12 +32,12 @@ using namespace std;
 /////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////
 
-typedef unsigned short      US_int;  // 16 bit without sign    //
-typedef unsigned long       UL_int;  // 32 bit without sign    //
-typedef unsigned long long ULL_int;  // 64 bit without sign    //
-typedef          short       S_int;  // 16 bit with sign       //
-typedef          long        L_int;  // 32 bit with sign       //
-typedef          long long  LL_int;  // 64 bit with sign       //
+typedef uint16_t      US_int;  // 16 bit without sign    //
+typedef uint32_t       UL_int;  // 32 bit without sign    //
+typedef uint64_t ULL_int;  // 64 bit without sign    //
+typedef          int16_t       S_int;  // 16 bit with sign       //
+typedef          int32_t        L_int;  // 32 bit with sign       //
+typedef          int64_t  LL_int;  // 64 bit with sign       //
 
 typedef UL_int             R_Elem;   // ring elements          //
 typedef UL_int             FixPoint; // fixed point reals      //
