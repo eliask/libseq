@@ -172,7 +172,6 @@ public:
 
 class DigitalSequence_base_2 : public DigitalSequence
 {
-   UL_int     old_n;
    FixPoint * C;
    FixPoint * bitmap;
 
