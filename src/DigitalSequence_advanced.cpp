@@ -1,18 +1,51 @@
 //////////////////////////////////////////////////////////////////////////////
 //
-// DigitalSequence_medium_base.C, 8.8.99, Ilja Friedel
+// DigitalSequence_advanced.cpp, 8.8.99, Ilja Friedel
 //
 //////////////////////////////////////////////////////////////////////////////
 //
-// Status: get_BufferLenForBase(UL_int base) tuned, ok
-//
+// Status:  nearly finished, get* functions 
+// 
 //////////////////////////////////////////////////////////////////////////////
+//
+// Warning: using function "new_DigitalSequence" will cause
+//          memory leakage, because no call to ~DigitalSequence_advanced()
+//          will occur
+//
+/////////////////////////////////////////////////////////////////////:-(//////
 
 #include "DigitalSequence.h"
 
 //////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
+// The constants in the following table tell how many digits
+// (or ring elements) are computed in parallel.
+//
+// Important: get_log_BufferLenForBase(UL_int base) must be a multiple of
+//            get_times_for_base(UL_int base) !
+// (It is save for this function to be (constant) 1. But then no work
+//  is done parallel.)
+//////////////////////////////////////////////////////////////////////////////
 
-UL_int DigitalSequence_medium_base::get_log_BufferLenForBase(UL_int base)
+UL_int DigitalSequence_advanced::get_times_for_base(UL_int base)
+{
+  if(base== 2) return 6; 
+  if(base== 3) return 4;
+  if(base== 4) return 3;
+  if(base== 5) return 2;
+  if(base== 6) return 2;
+  if(base== 7) return 2;
+  if(base== 8) return 2;
+  if(base== 9) return 1;
+  if(base==10) return 1;
+  if(base<=MAX_BUFFER_LEN) return 1;
+
+  return 1;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+UL_int DigitalSequence_advanced::get_log_BufferLenForBase(UL_int base)
 {
 
    if((base>= 2)&&(base<=10)) return int_log(get_BufferLenForBase(base),base);
@@ -22,23 +55,24 @@ UL_int DigitalSequence_medium_base::get_log_BufferLenForBase(UL_int base)
 }
 
 //////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
 // the constants in the following table can be tweaked to adjust for the
 // cache size of the computer used
+//
+// Important: see remark for get_times_for_base(UL_int base) !
 //////////////////////////////////////////////////////////////////////////////
 
-UL_int DigitalSequence_medium_base::get_BufferLenForBase(UL_int base)
+UL_int DigitalSequence_advanced::get_BufferLenForBase(UL_int base)
 {
 
    if(base== 2) return 64;
-   if(base== 3) return 27; 
-   if(base== 4) return 16; 
-   if(base== 5) return 25; 
-   if(base== 6) return 36; 
-   if(base== 7) return 49; 
+   if(base== 3) return 81;
+   if(base== 4) return 64;
+   if(base== 5) return 25;
+   if(base== 6) return 36;
+   if(base== 7) return 49;
    if(base== 8) return 64;
-   if(base== 9) return  9;
-   if(base==10) return 10;
+   if(base== 9) return 81;
+   if(base==10) return 100;
    
    if(base<=MAX_BUFFER_LEN) return base;
 
@@ -49,21 +83,21 @@ UL_int DigitalSequence_medium_base::get_BufferLenForBase(UL_int base)
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-DigitalSequence_medium_base::DigitalSequence_medium_base(C_matrix *C, Rng * rng_ptr):DigitalSequence(C->dimension,rng_ptr)
+DigitalSequence_advanced::DigitalSequence_advanced(C_matrix *C, Rng * rng_ptr):DigitalSequence(C->dimension,rng_ptr)
 {
    init(C,C->dimension,0);
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-DigitalSequence_medium_base::DigitalSequence_medium_base(C_matrix *C,UL_int dimension, Rng * rng_ptr):DigitalSequence(dimension,rng_ptr)
+DigitalSequence_advanced::DigitalSequence_advanced(C_matrix *C, UL_int dimension, Rng * rng_ptr):DigitalSequence(dimension,rng_ptr)
 {
    init(C,dimension,0);
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-DigitalSequence_medium_base::DigitalSequence_medium_base(C_matrix *C,UL_int dimension, UL_int offset, Rng * rng_ptr):DigitalSequence(dimension,rng_ptr)
+DigitalSequence_advanced::DigitalSequence_advanced(C_matrix *C, UL_int dimension, UL_int offset, Rng * rng_ptr):DigitalSequence(dimension,rng_ptr)
 {
    init(C,dimension,offset);
 }
@@ -72,33 +106,45 @@ DigitalSequence_medium_base::DigitalSequence_medium_base(C_matrix *C,UL_int dime
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-void DigitalSequence_medium_base::init(C_matrix *C, UL_int dim, UL_int offset)
+void DigitalSequence_advanced::init(C_matrix *C, UL_int dim, UL_int offset)
 {
    L_int i,k;
    UL_int base;
+   UL_int times;
+   UL_int base_pow_times;
 
 #ifdef DEBUG
    check_own_types();
 #endif
 
-   R             = C->R;
-   base          = R->base;
-   inv_base      = 1.0/((double)base);
-   CM            = C;
-   NumDigits     = C->NumDigits; 
-   dimension     = dim;
+   R              = C->R;
+   base           = R->base;
+   times          = get_times_for_base(base);
+   VCM            = new VectorMatrix(C,times);
+   VR             = new VectorRing(R,times);
+   base_pow_times = VR->base_pow_times;
+
+   inv_base_pow_times = 1.0/((double)base_pow_times);
+
+   CM          = C;
+   NumDigits   = VCM->NumDigits;
+   NumVectors  = VCM->NumVectors;
+   dimension   = dim;
    check_arguments();
 
    n0            = offset;
    n             = n0;
    BufferFull    = 0;
-   BufferLen     = get_BufferLenForBase(base);
-   log_BufferLen = get_log_BufferLenForBase(base);
+   BufferLen     = get_BufferLenForBase(base_pow_times);
+   log_BufferLen = get_log_BufferLenForBase(base);//base_pow_times);
 
    init_psi_and_eta();
 
-   N             = new Counter(R,NumDigits,psi);
-   DigitBuffer   = new UL_int ** [BufferLen];
+//////////////////////////////////////////////////////////////////////////////
+// get new Counter and DigitBuffer
+//////////////////////////////////////////////////////////////////////////////
+   N           = new Counter(R,NumDigits,psi);
+   DigitBuffer = new RVector ** [BufferLen];
    if(!(N&&DigitBuffer))
       {
 	cerr << "Error: Out of memory!" << endl;
@@ -107,18 +153,20 @@ void DigitalSequence_medium_base::init(C_matrix *C, UL_int dim, UL_int offset)
 
    for(k=0;k<BufferLen;k++)
      {
-       DigitBuffer[k] = new UL_int * [dimension];
+       DigitBuffer[k] = new RVector * [dimension];
        if(!(DigitBuffer[k]))
 	 {
-	   cerr << "Error: Out of memory!" << endl;
+	   cerr << "Error: Out of memory! ";
+	   cerr << "(DigitalSequence_advanced::init())" << endl;
 	   exit(1);
 	 }
        for(i=0;i<dimension;i++)
 	 {
-	   DigitBuffer[k][i] = new UL_int[NumDigits];
+	   DigitBuffer[k][i] = new RVector[NumVectors];
 	   if(!(DigitBuffer[k][i]))
 	     {
-	       cerr << "Error: Out of memory!" << endl;
+	       cerr << "Error: Out of memory! ";
+	       cerr << "(DigitalSequence_advanced::init())" << endl;
 	       exit(1);
 	     }
 	 }
@@ -126,22 +174,26 @@ void DigitalSequence_medium_base::init(C_matrix *C, UL_int dim, UL_int offset)
 
    clear_DigitBuffer();
 
+//////////////////////////////////////////////////////////////////////////////
+// calculate the next vector, actualize memory consumption
+//////////////////////////////////////////////////////////////////////////////
+
    N->set(n0);
    operator++();
 
-   memory     += sizeof(DigitalSequence_medium_base);
-   memory     += sizeof(UL_int)*dimension*NumDigits*BufferLen;
+   memory     += sizeof(DigitalSequence_advanced);
+   memory     += sizeof(UL_int)*dimension*NumVectors*BufferLen;
 }
 
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-void DigitalSequence_medium_base::operator++()
+void DigitalSequence_advanced::operator++()
 {
    L_int row,column,akdim,i,k;
    double dtmp;
-   UL_int ** LastDigit;
+   RVector ** LastDigit;
 
    check_next_dim();
    reset_next_dim();
@@ -149,8 +201,7 @@ void DigitalSequence_medium_base::operator++()
 // we have to reset next_dim in every <<::operator++()>>
 //////////////////////////////////////////////////////////////////////////////
 
-   Digit = DigitBuffer[n%BufferLen];
-
+   Digit = DigitBuffer[n % BufferLen];
    if(!(BufferFull))
      {
        LastDigit = DigitBuffer[(n-1)%BufferLen];
@@ -160,11 +211,11 @@ void DigitalSequence_medium_base::operator++()
 	     {
 	       for(akdim=0;akdim<dimension;akdim++)
 		 {	      
-		   for(row=0;row<NumDigits;row++) // row<=C->LastDigitNotNull
+		   for(row=0;row<NumVectors;row++) // row<=C->LastDigitNotNull
 		     {	       
-		       Digit[akdim][row]=R->add(LastDigit[akdim][row],
-					   R->mult(CM->query(akdim,row,column),
-					      N->difference(column)));
+		       Digit[akdim][row]=VR->add(LastDigit[akdim][row],
+					   VR->mult(N->difference(column),
+					     VCM->query(akdim,row,column)						  ));
 		     }   
 		 }
 	       LastDigit=Digit; // different only for initialization of the
@@ -177,7 +228,8 @@ void DigitalSequence_medium_base::operator++()
 	 {
 	   // switch to faster calculation via Buffer recycling
 	   BufferFull=1;
-	   N->increment_digit(log_BufferLen);	   
+
+	   ++(*N);//N->increment_digit(log_BufferLen);	   
 	 }
        else ++(*N);
        n--;
@@ -189,22 +241,22 @@ void DigitalSequence_medium_base::operator++()
      {
        for(akdim=0;akdim<dimension;akdim++)
 	 {	      
-	   for(row=0;row<NumDigits;row++) // row<=C->LastDigitNotNull
+	   for(row=0;row<NumVectors;row++) // row<=C->LastDigitNotNull
 	     {	       
-	       R_Elem change;
+	       RVector change;
 	       change=0;
 	       for(column=(L_int)log_BufferLen;column<=N->LastChangingDigit;column++)
  		 {
 		   if((N->difference(column))!=0)
 		     {
-		       change=R->add(change,
-				     R->mult(CM->query(akdim,row,column),
-					     N->difference(column)));
+		       change=VR->add(change,
+				VR->mult(N->difference(column),
+				  VCM->query(akdim,row,column)));
 		     }   
 		 }
 	       if(change!=0) for(k=0;k<BufferLen;k++)
 		 {
-		   DigitBuffer[k][akdim][row]=R->add(change,
+		   DigitBuffer[k][akdim][row]=VR->add(change,
 						  DigitBuffer[k][akdim][row]);
 		 }
 	     }       
@@ -218,11 +270,11 @@ void DigitalSequence_medium_base::operator++()
      {
        dtmp=0.0;
 
-       for(i=(L_int)NumDigits-1;i>=0;i--)
+       for(i=(L_int)NumVectors-1;i>=0;i--)
 	 {  
 	   dtmp=(dtmp+
-		 (double)(*(eta[akdim*(NumDigits+1)+i]))[Digit[akdim][i]]
-		 )*inv_base;
+		 (double)(*(eta[akdim*(NumVectors+1)+i]))[Digit[akdim][i]]
+		 )*inv_base_pow_times;
 	 }       
        X[akdim]=dtmp;
      }
@@ -233,7 +285,7 @@ void DigitalSequence_medium_base::operator++()
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-DigitalSequence_medium_base::~DigitalSequence_medium_base()
+DigitalSequence_advanced::~DigitalSequence_advanced()
 {
    L_int i,j,k;
 
@@ -247,20 +299,24 @@ DigitalSequence_medium_base::~DigitalSequence_medium_base()
      }
    delete[] DigitBuffer;
    DigitBuffer=NULL;
-   Digit=NULL;
+   Digit      =NULL;
+
+//////////////////////////////////////////////////////////////////////////////
 
    for(i=0;i<=NumDigits;i++)
      {
        if(psi) delete psi[i];
-       if(eta) 
-	 for(j=0;j<dimension;j++) 
-	   {
-	     if(eta[j*(NumDigits+1)+i]) delete eta[j*(NumDigits+1)+i];
-	   }
      }
    if(psi) delete[] psi;
-   if(eta) delete[] eta;
    psi=NULL;
+
+//////////////////////////////////////////////////////////////////////////////
+
+   for(i=0;i<=NumVectors;i++)
+     {
+       if(eta) for(j=0;j<dimension;j++) {delete eta[j*(NumVectors+1)+i];}
+     }
+   if(eta) delete[] eta;
    eta=NULL;
 }
 
@@ -268,21 +324,24 @@ DigitalSequence_medium_base::~DigitalSequence_medium_base()
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-void DigitalSequence_medium_base::random_restart()
+void DigitalSequence_advanced::random_restart()
 {
    L_int i,j;
    
-   for(i=0;i<=NumDigits;i++)
+   for(i=0;i<=NumDigits;i++) 
+     {
+       ++(*(psi[i]));
+     }
+   for(i=0;i<=NumVectors;i++)
    { 
-      ++(*(psi[i]));
       for(j=0;j<dimension;j++)
       {
-         ++(*(eta[j*(NumDigits+1)+i]));
+         ++(*(eta[j*(NumVectors+1)+i]));
       }
    }
 
    n = n0;
-   N->reset();
+   N->reset(); 
 //////////////////////////////////////////////////////////////////////////////
 // N->reset() must be _after_ choosing new permutations!!! 
 //////////////////////////////////////////////////////////////////////////////
@@ -296,7 +355,7 @@ void DigitalSequence_medium_base::random_restart()
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-void DigitalSequence_medium_base::restart(void) 
+void DigitalSequence_advanced::restart(void) 
 {
    n = n0;
    N->reset();
@@ -311,34 +370,29 @@ void DigitalSequence_medium_base::restart(void)
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-void DigitalSequence_medium_base::init_psi_and_eta()
+void DigitalSequence_advanced::init_psi_and_eta(void)
 {
-  
-   L_int i,j;
+    L_int i,j;
    UL_int base;
+   UL_int times;
    
    base=R->base;
+   times=get_times_for_base(base);
    
+//////////////////////////////////////////////////////////////////////////////
+
    psi=new RandomPermutation * [NumDigits+1];
-   memory+=sizeof(RandomPermutation *)*(NumDigits+1);
+   memory+=sizeof(RandomPermutation *) *(NumDigits+1);
    
    if(!psi)
      {
        cerr << "Error: Out of memory! ";
-       cerr << "(DigitalSequence_medium_base::init_psi_and_eta())" << endl;
+       cerr << "(DigitalSequence_advanced::init_psi_and_eta())" << endl;
        exit(1);
      }
    
-   eta=new RandomPermutation * [dimension*(NumDigits+1)];
-   memory+=sizeof(RandomPermutation *)*(NumDigits+1)*dimension;
-   
-   if(!eta)
-     {
-       cerr << "Error: Out of memory! ";
-       cerr << "(DigitalSequence_medium_base::init_psi_and_eta())" << endl;
-       exit(1);
-     }
-   
+//////////////////////////////////////////////////////////////////////////////
+
    for(i=0;i<=NumDigits;i++)
      { 
        psi[i]=new RandomPermutation(base,rng);
@@ -347,20 +401,37 @@ void DigitalSequence_medium_base::init_psi_and_eta()
        if(!psi[i])
 	 {
 	   cerr << "Error: Out of memory! ";
-	   cerr << "(DigitalSequence_medium_base::init_psi_and_eta())" << endl;
+	   cerr << "(DigitalSequence_advanced::init_psi_and_eta())" << endl;
 	   exit(1);
 	 } 
+     }
+
+//////////////////////////////////////////////////////////////////////////////
+
+   eta    =new RandomPermutation * [dimension*(NumVectors+1)];
+   memory+=sizeof(RandomPermutation *)*(NumVectors+1)*dimension;
+   
+   if(!eta)
+     {
+       cerr << "Error: Out of memory! ";
+       cerr << "(DigitalSequence_advanced::init_psi_and_eta())" << endl;
+       exit(1);
+     }
+   
+//////////////////////////////////////////////////////////////////////////////
+
+   for(i=0;i<=NumVectors;i++)
+     { 
        for(j=0;j<dimension;j++)
 	 {
 	   
-	   eta[j*(NumDigits+1)+i]=new RandomPermutation(base,rng);
+	   eta[j*(NumVectors+1)+i]=new VectorRandomPermutation(base,times,rng);
 	   memory+=eta[i]->memory_used();
 	   
-	   if(eta[j*(NumDigits+1)+i]==NULL)
+	   if(eta[j*(NumVectors+1)+i]==NULL)
 	     {
 	       cerr << "Error: Out of memory! ";
-	       cerr << "(DigitalSequence_medium_base::init_psi_and_eta())";
-	       cerr << endl;
+	       cerr << "(DigitalSequence_advanced::init_psi_and_eta())" <<endl;
 	       exit(1);
 	     }
 	 }
@@ -371,7 +442,7 @@ void DigitalSequence_medium_base::init_psi_and_eta()
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-void DigitalSequence_medium_base::clear_DigitBuffer(void)
+void DigitalSequence_advanced::clear_DigitBuffer(void)
 {
    L_int k,i,j;
 
@@ -379,7 +450,7 @@ void DigitalSequence_medium_base::clear_DigitBuffer(void)
      {
        for(i=0;i<dimension;i++)
 	 {
-	   for(j=0;j<NumDigits;j++) DigitBuffer[k][i][j]=0;
+	   for(j=0;j<NumVectors;j++) DigitBuffer[k][i][j]=0;
 	 }
      }
 }

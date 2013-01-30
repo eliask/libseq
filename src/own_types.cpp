@@ -1,6 +1,6 @@
 /////////////////////////////////////////////////////////////////
 //                                                             
-// own_types.C, 09/12/00, Ilja Friedel                         
+// own_types.cpp, 09/12/00, Ilja Friedel                         
 //
 /////////////////////////////////////////////////////////////////
 //                                                             
@@ -57,7 +57,7 @@ void check_own_types(void)
       
    if(!ok)
      {
-       cerr << "Please change definitions in file 'lib/own_types.C' or " <<
+       cerr << "Please change definitions in file 'lib/own_types.cpp' or " <<
                "choose another compiler (g++)!" << endl;
        exit(1);
      }

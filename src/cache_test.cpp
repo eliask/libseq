@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////
 // 
-// cache_test.C, Ilja Friedel, 03/26/01
+// cache_test.cpp, Ilja Friedel, 03/26/01
 //
 // use this program to measure cache miss penalty
 // e.g. "time cache_test 10^7 1" vs. "time cache_test 10^7 11"
